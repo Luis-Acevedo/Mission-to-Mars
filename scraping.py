@@ -14,12 +14,16 @@ def scrape_all():
     news_title, news_paragraph = mars_news(browser)
 
     # Run all scraping functions and store results in a dictionary
+    hemisphere_image_urls = hemisphere(browser)
+
+    # Run all scraping functions and store results in a dictionary
     data = {
         "news_title": news_title,
         "news_paragraph": news_paragraph,
         "featured_image": featured_image(browser),
         "facts": mars_facts(),
-        "last_modified": dt.datetime.now()
+        "last_modified": dt.datetime.now(),
+        "img_url": hemisphere_image_urls
     }
 
     # Stop webdriver and return data
@@ -47,7 +51,8 @@ def mars_news(browser):
         # Use the parent element to find the first 'a' tag and save it as 'news_title'
         news_title = slide_elem.find('div', class_='content_title').get_text()
         # Use the parent element to find the paragraph text
-        news_p = slide_elem.find('div', class_='article_teaser_body').get_text()
+        news_p = slide_elem.find(
+            'div', class_='article_teaser_body').get_text()
 
     except AttributeError:
         return None, None
@@ -78,25 +83,47 @@ def featured_image(browser):
 
     # Use the base url to create an absolute url
     img_url = f'https://data-class-jpl-space.s3.amazonaws.com/JPL_Space/{img_url_rel}'
-    
+
     print(img_url)
-    
+
 
 def mars_facts():
     # Add try/except for error handling
     try:
         # Use 'read_html' to scrape the facts table into a dataframe
-        df = pd.read_html('https://data-class-mars-facts.s3.amazonaws.com/Mars_Facts/index.html')[0]
+        df = pd.read_html(
+            'https://data-class-mars-facts.s3.amazonaws.com/Mars_Facts/index.html')[0]
 
     except BaseException:
         return None
 
     # Assign columns and set index of dataframe
-    df.columns=['Description', 'Mars', 'Earth']
+    df.columns = ['Description', 'Mars', 'Earth']
     df.set_index('Description', inplace=True)
 
     # Convert dataframe into HTML format, add bootstrap
     return df.to_html(classes="table table-striped")
+
+
+def hemisphere(browser):
+    url = 'https://data-class-mars-hemispheres.s3.amazonaws.com/Mars_Hemispheres/index.html'
+    browser.visit(url)
+
+    hemisphere_image_urls = []
+
+    urls = [(a.text, a['href']) for a in browser
+            .find_by_css('div[class="description"] a')]
+
+    for title, url in urls:
+        mars_image_dict = {}
+        browser.visit(url)
+        img_url = browser.find_by_css('img[class="wide-image"]')['src']
+        mars_image_dict['img_url'] = img_url
+        mars_image_dict['title'] = title
+        hemisphere_image_urls.append(mars_image_dict)
+
+    return hemisphere_image_urls
+
 
 if __name__ == "__main__":
 
